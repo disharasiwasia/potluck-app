@@ -24,19 +24,32 @@ function App() {
     const [editingItemId, setEditingItemId] = useState(null);
     const [editItemNameVal, setEditItemNameVal] = useState("");
 
-    const fetchDashboard = async (gNo) => {
+    useEffect(() => {
+        const session = localStorage.getItem("potluck_session");
+        if (session) {
+            const data = JSON.parse(session);
+            setGroupNo(data.groupNo);
+            setParticipantId(data.participantId);
+            setName(data.name);
+            setPhone(data.phone);
+            fetchDashboard(data.groupNo, true);
+        }
+    }, []);
+
+    const fetchDashboard = async (gNo, isAutoLogin = false) => {
         try {
             const res = await fetch(`${API_BASE}/potlucks/${gNo}`);
             if (res.ok) {
                 const data = await res.json();
                 setDashboardData(data);
+                if (isAutoLogin) setView("dashboard");
             } else {
-                alert("Potluck not found!");
-                setView("landing");
+                if (!isAutoLogin) alert("Potluck not found!");
+                handleSignOut();
             }
         } catch (e) {
             console.error(e);
-            alert("Error fetching dashboard.");
+            if (!isAutoLogin) alert("Error fetching dashboard.");
         }
     };
 
@@ -49,6 +62,14 @@ function App() {
                 body: JSON.stringify({ name, phone })
             });
             const data = await res.json();
+            
+            // Save Session
+            localStorage.setItem("potluck_session", JSON.stringify({
+                groupNo: data.group_no,
+                participantId: data.participant_id,
+                name, phone
+            }));
+
             setGroupNo(data.group_no);
             setParticipantId(data.participant_id);
             await fetchDashboard(data.group_no);
@@ -66,11 +87,27 @@ function App() {
             });
             if (!res.ok) return alert("Group not found");
             const data = await res.json();
+
+            // Save Session
+            localStorage.setItem("potluck_session", JSON.stringify({
+                groupNo: inputGroupNo,
+                participantId: data.participant_id,
+                name, phone
+            }));
+
             setGroupNo(inputGroupNo);
             setParticipantId(data.participant_id);
             await fetchDashboard(inputGroupNo);
             setView("dashboard");
         } catch (e) { console.error(e); }
+    };
+
+    const handleSignOut = () => {
+        localStorage.removeItem("potluck_session");
+        setGroupNo("");
+        setParticipantId(null);
+        setDashboardData(null);
+        setView("landing");
     };
 
     const toggleStatus = async (pid, currentStatus) => {
@@ -182,9 +219,12 @@ function App() {
                             <p className="text-secondary" style={{fontSize: '1rem', marginTop: '0.5rem', marginBottom: 0}}>Group Code: <strong style={{color: 'var(--text-primary)'}}>{groupNo}</strong></p>
                         </div>
                         
-                        <div className="coming-count" style={{cursor: 'pointer', textAlign: 'right'}} onClick={() => setShowParticipants(true)}>
-                            {comingCount} Coming {comingCount > 0 ? "🔥" : "😢"}
-                            <div className="text-secondary" style={{fontSize: '0.8rem', fontWeight: 'normal', marginTop: '4px'}}>Click to view participants</div>
+                        <div className="flex-col" style={{alignItems: 'flex-end', gap: '0.5rem'}}>
+                            <button className="outline" style={{padding: '4px 12px', fontSize: '0.8rem', border: '1px solid var(--border-color)', borderRadius: '20px'}} onClick={handleSignOut}>Sign Out</button>
+                            <div className="coming-count" style={{cursor: 'pointer', textAlign: 'right'}} onClick={() => setShowParticipants(true)}>
+                                {comingCount} Coming {comingCount > 0 ? "🔥" : "😢"}
+                                <div className="text-secondary" style={{fontSize: '0.8rem', fontWeight: 'normal', marginTop: '4px'}}>Click to view participants</div>
+                            </div>
                         </div>
                     </div>
                 </div>
